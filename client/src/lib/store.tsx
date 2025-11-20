@@ -1,136 +1,199 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
+import axios from 'axios';
 
 // Types
 export interface User {
   id: string;
   name: string;
   email: string;
-  avatar?: string;
 }
 
 export interface CodeFile {
-  id: string;
-  name: string;
+  _id: string;
+  filename: string;
   language: string;
   content: string;
-  lastModified: Date;
+  lastModified: string;
 }
 
 interface AppContextType {
   user: User | null;
   files: CodeFile[];
   isLoading: boolean;
-  login: (email: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<void>;
+  register: (email: string, password: string, name: string) => Promise<void>;
   logout: () => void;
-  createFile: (name: string, language: string) => void;
-  updateFile: (id: string, content: string) => void;
-  deleteFile: (id: string) => void;
+  createFile: (filename: string, language: string) => Promise<void>;
+  updateFile: (id: string, content: string) => Promise<void>;
+  deleteFile: (id: string) => Promise<void>;
   enhanceCode: (code: string, prompt: string) => Promise<string>;
+  fetchFiles: () => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
-// Mock Initial Data
-const INITIAL_FILES: CodeFile[] = [
-  {
-    id: '1',
-    name: 'server.js',
-    language: 'javascript',
-    content: `const express = require('express');\nconst app = express();\nconst port = 3000;\n\napp.get('/', (req, res) => {\n  res.send('Hello World!');\n});\n\napp.listen(port, () => {\n  console.log(\`Example app listening at http://localhost:\${port}\`);\n});`,
-    lastModified: new Date()
-  },
-  {
-    id: '2',
-    name: 'utils.ts',
-    language: 'typescript',
-    content: `export const formatDate = (date: Date): string => {\n  return new Intl.DateTimeFormat('en-US').format(date);\n};\n\nexport const calculateTotal = (items: any[]) => {\n  return items.reduce((acc, item) => acc + item.price, 0);\n};`,
-    lastModified: new Date(Date.now() - 86400000)
-  },
-  {
-    id: '3',
-    name: 'App.jsx',
-    language: 'javascript',
-    content: `import React from 'react';\n\nfunction App() {\n  return (\n    <div className="App">\n      <h1>Welcome to React</h1>\n    </div>\n  );\n}\n\nexport default App;`,
-    lastModified: new Date(Date.now() - 172800000)
-  }
-];
-
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [files, setFiles] = useState<CodeFile[]>(INITIAL_FILES);
-  const [isLoading, setIsLoading] = useState(false);
+  const [files, setFiles] = useState<CodeFile[]>([]);
+  const [isLoading, setIsLoading] = useState(true); // Start loading to check token
   const { toast } = useToast();
 
-  const login = async (email: string) => {
-    setIsLoading(true);
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    setUser({
-      id: 'u1',
-      name: email.split('@')[0],
-      email: email,
-      avatar: 'https://github.com/shadcn.png'
-    });
+  // Initialize axios token if exists
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    const savedUser = localStorage.getItem('user');
+    if (token && savedUser) {
+      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      setUser(JSON.parse(savedUser));
+      fetchFiles();
+    }
     setIsLoading(false);
-    toast({
-      title: "Welcome back!",
-      description: "Successfully logged in.",
-    });
+  }, []);
+
+  const fetchFiles = async () => {
+    try {
+      const res = await axios.get('/api/files');
+      setFiles(res.data);
+    } catch (error) {
+      console.error("Failed to fetch files", error);
+    }
+  };
+
+  const login = async (email: string, password: string) => {
+    setIsLoading(true);
+    try {
+      const res = await axios.post('/api/auth/login', { email, password });
+      const { token, user } = res.data;
+      
+      localStorage.setItem('token', token);
+      localStorage.setItem('user', JSON.stringify(user));
+      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      
+      setUser(user);
+      await fetchFiles();
+      
+      toast({
+        title: "Welcome back!",
+        description: "Successfully logged in.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Login failed",
+        description: error.response?.data?.message || "An error occurred",
+        variant: "destructive"
+      });
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const register = async (email: string, password: string, name: string) => {
+    setIsLoading(true);
+    try {
+      const res = await axios.post('/api/auth/register', { email, password, name });
+      const { token, user } = res.data;
+      
+      localStorage.setItem('token', token);
+      localStorage.setItem('user', JSON.stringify(user));
+      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      
+      setUser(user);
+      await fetchFiles();
+      
+      toast({
+        title: "Account created",
+        description: "Welcome to AI Code Manager!",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Registration failed",
+        description: error.response?.data?.message || "An error occurred",
+        variant: "destructive"
+      });
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const logout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    delete axios.defaults.headers.common['Authorization'];
     setUser(null);
+    setFiles([]);
     toast({
       title: "Logged out",
       description: "See you next time!",
     });
   };
 
-  const createFile = (name: string, language: string) => {
-    const newFile: CodeFile = {
-      id: Math.random().toString(36).substr(2, 9),
-      name,
-      language,
-      content: '// Start coding...',
-      lastModified: new Date()
-    };
-    setFiles([newFile, ...files]);
-    toast({
-      title: "File created",
-      description: `${name} has been created.`,
-    });
+  const createFile = async (filename: string, language: string) => {
+    try {
+      await axios.post('/api/files', { filename, language, content: '// Start coding...' });
+      await fetchFiles();
+      toast({
+        title: "File created",
+        description: `${filename} has been created.`,
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: "Failed to create file",
+        variant: "destructive"
+      });
+    }
   };
 
-  const updateFile = (id: string, content: string) => {
+  const updateFile = async (id: string, content: string) => {
+    // Optimistic update
     setFiles(files.map(f => 
-      f.id === id ? { ...f, content, lastModified: new Date() } : f
+      f._id === id ? { ...f, content } : f
     ));
+    
+    try {
+      await axios.put(`/api/files/${id}`, { content });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to save file",
+        variant: "destructive"
+      });
+      fetchFiles(); // Revert on error
+    }
   };
 
-  const deleteFile = (id: string) => {
-    setFiles(files.filter(f => f.id !== id));
-    toast({
-      title: "File deleted",
-      description: "File has been moved to trash.",
-    });
+  const deleteFile = async (id: string) => {
+    try {
+      await axios.delete(`/api/files/${id}`);
+      setFiles(files.filter(f => f._id !== id));
+      toast({
+        title: "File deleted",
+        description: "File has been moved to trash.",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to delete file",
+        variant: "destructive"
+      });
+    }
   };
 
   const enhanceCode = async (code: string, prompt: string): Promise<string> => {
-    // Simulate AI Delay
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    // Mock AI Logic
-    let enhanced = code;
-    if (prompt.toLowerCase().includes('comment')) {
-      enhanced = `/**\n * Enhanced by AI Code Manager\n * Goal: ${prompt}\n */\n\n` + code.split('\n').map(line => `// ${line.trim()} - Explained\n${line}`).join('\n');
-    } else if (prompt.toLowerCase().includes('refactor')) {
-       enhanced = `// ✨ Refactored for performance\n` + code;
-    } else {
-      enhanced = `// 🤖 AI Suggestion: ${prompt}\n` + code + `\n\n// TODO: Implement suggested improvements`;
+    try {
+      const res = await axios.post('/api/ai/enhance', { code, prompt });
+      return res.data.enhancedCode;
+    } catch (error: any) {
+      toast({
+        title: "AI Error",
+        description: error.response?.data?.message || "Failed to enhance code",
+        variant: "destructive"
+      });
+      throw error;
     }
-    
-    return enhanced;
   };
 
   return (
@@ -138,12 +201,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       user, 
       files, 
       isLoading, 
-      login, 
+      login,
+      register,
       logout, 
       createFile, 
       updateFile, 
       deleteFile,
-      enhanceCode 
+      enhanceCode,
+      fetchFiles
     }}>
       {children}
     </AppContext.Provider>

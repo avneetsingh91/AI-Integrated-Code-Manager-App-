@@ -1,8 +1,11 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import mongoose from "mongoose";
+import cors from "cors";
 
 const app = express();
+app.use(cors());
 
 declare module 'http' {
   interface IncomingMessage {
@@ -47,6 +50,30 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  // Connect to MongoDB
+  if (!process.env.MONGODB_URI) {
+    throw new Error("MONGODB_URI environment variable is not set");
+  }
+  
+  try {
+    let uri = process.env.MONGODB_URI;
+    // Sanitize URI: remove quotes if present
+    uri = uri.replace(/^['"]|['"]$/g, '');
+    
+    // Ensure protocol
+    if (!uri.startsWith('mongodb://') && !uri.startsWith('mongodb+srv://')) {
+      console.warn("MONGODB_URI is missing protocol. Attempting to prepend 'mongodb://'");
+      uri = `mongodb://${uri}`;
+    }
+
+    await mongoose.connect(uri);
+    log("Connected to MongoDB");
+  } catch (err) {
+    console.error("MongoDB connection error:", err);
+    // Don't exit, just log error so server can still start (frontend might work partially)
+    // process.exit(1); 
+  }
+
   const server = await registerRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {

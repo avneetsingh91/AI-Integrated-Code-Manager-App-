@@ -3,7 +3,6 @@ import { useApp } from "@/lib/store";
 import { useRoute, useLocation } from "wouter";
 import Editor from "@monaco-editor/react";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Loader2, Play, Save, Sparkles, ArrowLeft, Bot } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -12,11 +11,12 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 
 export default function EditorPage() {
   const [, params] = useRoute("/editor/:id");
-  const { files, updateFile, enhanceCode } = useApp();
+  const { files, updateFile, enhanceCode, isLoading } = useApp();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   
-  const file = files.find(f => f.id === params?.id);
+  // Wait for files to be loaded before redirecting
+  const file = files.find(f => f._id === params?.id);
   
   const [code, setCode] = useState("");
   const [prompt, setPrompt] = useState("");
@@ -26,15 +26,16 @@ export default function EditorPage() {
   useEffect(() => {
     if (file) {
       setCode(file.content);
-    } else {
-      setLocation("/dashboard");
+    } else if (!isLoading && files.length > 0 && !file) {
+       // Only redirect if files are loaded but file not found
+       setLocation("/dashboard");
     }
-  }, [file, setLocation]);
+  }, [file, files, isLoading, setLocation]);
 
-  if (!file) return null;
+  if (isLoading || !file) return <div className="h-screen flex items-center justify-center text-muted-foreground animate-pulse">Loading editor...</div>;
 
-  const handleSave = () => {
-    updateFile(file.id, code);
+  const handleSave = async () => {
+    await updateFile(file._id, code);
     toast({ title: "Saved", description: "Your changes have been saved." });
   };
 
@@ -52,7 +53,7 @@ export default function EditorPage() {
       });
       setPrompt("");
     } catch (error) {
-      toast({ title: "Error", description: "Failed to enhance code.", variant: "destructive" });
+      // Error handled in store
     } finally {
       setIsEnhancing(false);
     }
@@ -62,12 +63,13 @@ export default function EditorPage() {
     setOutput("Running...");
     setTimeout(() => {
       try {
-        // Dangerous in prod, but fine for mockup demonstration
-        // In a real app, this would go to a sandbox API
+        // Dangerous in prod, but fine for demonstration
         if (file.language === 'javascript') {
-             // Basic console log capture
              const logs: string[] = [];
-             const mockConsole = { log: (...args: any[]) => logs.push(args.join(' ')) };
+             const mockConsole = { 
+               log: (...args: any[]) => logs.push(args.map(a => String(a)).join(' ')),
+               error: (...args: any[]) => logs.push('Error: ' + args.map(a => String(a)).join(' '))
+             };
              // eslint-disable-next-line no-new-func
              const func = new Function('console', code);
              func(mockConsole);
@@ -90,7 +92,7 @@ export default function EditorPage() {
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div className="flex flex-col">
-            <span className="font-semibold">{file.name}</span>
+            <span className="font-semibold">{file.filename}</span>
             <span className="text-xs text-muted-foreground">{file.language}</span>
           </div>
         </div>

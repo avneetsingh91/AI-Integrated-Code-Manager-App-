@@ -5,20 +5,34 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Wand2, Code2 } from "lucide-react";
 import { useLocation } from "wouter";
 import generatedImage from '@assets/generated_images/Minimalist_AI_Code_Logo_aa6b0b6b.png';
 
 export default function AuthPage() {
-  const { login, isLoading } = useApp();
+  const { login, register, isLoading } = useApp();
   const [, setLocation] = useLocation();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [name, setName] = useState("");
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    await login(email);
-    setLocation("/dashboard");
+    try {
+      await login(email, password);
+      setLocation("/dashboard");
+    } catch (error) {
+      // Error handled in store
+    }
+  };
+
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await register(email, password, name);
+      setLocation("/dashboard");
+    } catch (error) {
+      // Error handled in store
+    }
   };
 
   return (
@@ -83,23 +97,45 @@ export default function AuthPage() {
             </TabsContent>
             
             <TabsContent value="register">
-              <div className="space-y-4">
+              <form onSubmit={handleRegister} className="space-y-4">
                 <div className="space-y-2">
-                   <Label>Name</Label>
-                   <Input placeholder="John Doe" className="bg-background/50" />
+                   <Label htmlFor="reg-name">Name</Label>
+                   <Input 
+                     id="reg-name"
+                     placeholder="John Doe" 
+                     value={name}
+                     onChange={(e) => setName(e.target.value)}
+                     required
+                     className="bg-background/50" 
+                   />
                 </div>
                 <div className="space-y-2">
-                   <Label>Email</Label>
-                   <Input placeholder="dev@example.com" className="bg-background/50" />
+                   <Label htmlFor="reg-email">Email</Label>
+                   <Input 
+                     id="reg-email"
+                     type="email"
+                     placeholder="dev@example.com" 
+                     value={email}
+                     onChange={(e) => setEmail(e.target.value)}
+                     required
+                     className="bg-background/50" 
+                   />
                 </div>
                 <div className="space-y-2">
-                   <Label>Password</Label>
-                   <Input type="password" className="bg-background/50" />
+                   <Label htmlFor="reg-password">Password</Label>
+                   <Input 
+                     id="reg-password"
+                     type="password" 
+                     value={password}
+                     onChange={(e) => setPassword(e.target.value)}
+                     required
+                     className="bg-background/50" 
+                   />
                 </div>
-                <Button className="w-full" onClick={() => handleLogin({ preventDefault: () => {} } as any)}>
-                  Create Account
+                <Button type="submit" className="w-full bg-primary hover:bg-primary/90 transition-all duration-300 shadow-lg shadow-primary/20" disabled={isLoading}>
+                  {isLoading ? "Creating Account..." : "Create Account"}
                 </Button>
-              </div>
+              </form>
             </TabsContent>
           </Tabs>
         </CardContent>

@@ -1,4 +1,4 @@
-import { useApp, CodeFile } from "@/lib/store";
+import { useApp } from "@/lib/store";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Plus, FileCode, Trash2, MoreVertical, Search } from "lucide-react";
@@ -20,11 +20,11 @@ export default function Dashboard() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   const filteredFiles = files.filter(f => 
-    f.name.toLowerCase().includes(search.toLowerCase())
+    f.filename.toLowerCase().includes(search.toLowerCase())
   );
 
-  const handleCreate = () => {
-    createFile(newFileName, newFileLang);
+  const handleCreate = async () => {
+    await createFile(newFileName, newFileLang);
     setIsDialogOpen(false);
     setNewFileName("");
   };
@@ -45,7 +45,7 @@ export default function Dashboard() {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-          <p className="text-muted-foreground">Manage your projects and code snippets.</p>
+          <p className="text-muted-foreground">Welcome, {user?.name}. Manage your projects.</p>
         </div>
         
         <div className="flex items-center gap-3 w-full md:w-auto">
@@ -104,9 +104,9 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredFiles.map((file) => (
           <Card 
-            key={file.id} 
+            key={file._id} 
             className="group relative border-primary/10 bg-card/50 hover:bg-card hover:border-primary/30 transition-all duration-300 cursor-pointer hover:shadow-xl hover:shadow-primary/5 hover:-translate-y-1"
-            onClick={() => setLocation(`/editor/${file.id}`)}
+            onClick={() => setLocation(`/editor/${file._id}`)}
           >
             <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
               <div className={`p-2 rounded-lg ${getLanguageColor(file.language)}`}>
@@ -121,7 +121,7 @@ export default function Dashboard() {
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={(e) => {
                     e.stopPropagation();
-                    deleteFile(file.id);
+                    deleteFile(file._id);
                   }}>
                     <Trash2 className="mr-2 h-4 w-4" /> Delete
                   </DropdownMenuItem>
@@ -129,12 +129,12 @@ export default function Dashboard() {
               </DropdownMenu>
             </CardHeader>
             <CardContent>
-              <CardTitle className="text-lg mb-1">{file.name}</CardTitle>
+              <CardTitle className="text-lg mb-1">{file.filename}</CardTitle>
               <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium">{file.language}</p>
             </CardContent>
             <CardFooter>
               <p className="text-xs text-muted-foreground">
-                Edited {formatDistanceToNow(file.lastModified)} ago
+                Edited {formatDistanceToNow(new Date(file.lastModified))} ago
               </p>
             </CardFooter>
           </Card>
