@@ -1,17 +1,24 @@
+import dotenv from "dotenv";
+dotenv.config(); // Load environment variables
+
+
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import mongoose from "mongoose";
 import cors from "cors";
 
+// Initialize the express app
 const app = express();
 app.use(cors());
 
+// Define types for raw body access
 declare module 'http' {
   interface IncomingMessage {
     rawBody: unknown
   }
 }
+
 app.use(express.json({
   verify: (req, _res, buf) => {
     req.rawBody = buf;
@@ -19,6 +26,7 @@ app.use(express.json({
 }));
 app.use(express.urlencoded({ extended: false }));
 
+// Logging middleware
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
@@ -49,23 +57,25 @@ app.use((req, res, next) => {
   next();
 });
 
+// Main async function to initialize the app
 (async () => {
-  // Connect to MongoDB
+  // Check if MONGODB_URI is set in the environment variables
   if (!process.env.MONGODB_URI) {
     throw new Error("MONGODB_URI environment variable is not set");
   }
-  
+
   try {
     let uri = process.env.MONGODB_URI;
     // Sanitize URI: remove quotes if present
     uri = uri.replace(/^['"]|['"]$/g, '');
     
-    // Ensure protocol
+    // Ensure protocol is present
     if (!uri.startsWith('mongodb://') && !uri.startsWith('mongodb+srv://')) {
       console.warn("MONGODB_URI is missing protocol. Attempting to prepend 'mongodb://'");
       uri = `mongodb://${uri}`;
     }
 
+    // Attempt to connect to MongoDB
     await mongoose.connect(uri);
     log("Connected to MongoDB");
   } catch (err) {
@@ -74,8 +84,10 @@ app.use((req, res, next) => {
     // process.exit(1); 
   }
 
+  // Register API routes
   const server = await registerRoutes(app);
 
+  // Error handling middleware
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
@@ -84,25 +96,21 @@ app.use((req, res, next) => {
     throw err;
   });
 
-  // importantly only setup vite in development and after
-  // setting up all the other routes so the catch-all route
-  // doesn't interfere with the other routes
+  // Set up Vite in development mode
   if (app.get("env") === "development") {
     await setupVite(app, server);
   } else {
     serveStatic(app);
   }
 
-  // ALWAYS serve the app on the port specified in the environment variable PORT
-  // Other ports are firewalled. Default to 5000 if not specified.
-  // this serves both the API and the client.
-  // It is the only port that is not firewalled.
-  const port = parseInt(process.env.PORT || '5000', 10);
-  server.listen({
-    port,
-    host: "0.0.0.0",
-    reusePort: true,
-  }, () => {
-    log(`serving on port ${port}`);
-  });
+  // Always serve the app on the port specified in the environment variable PORT
+  const port = parseInt(process.env.PORT || '5001', 10);
+
+// Old code (fails on Windows)
+// server.listen({ port, host: '0.0.0.0', reusePort: true }, () => log(`Server running`));
+
+// New code (Windows-safe)
+server.listen(port, 'localhost', () => {
+  console.log(`Server running on http://localhost:${port}`);
+});;
 })();
