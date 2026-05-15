@@ -106,11 +106,8 @@ app.use((req, res, next) => {
   // Always serve the app on the port specified in the environment variable PORT
   const port = parseInt(process.env.PORT || '5001', 10);
 
-// Old code (fails on Windows)
-// server.listen({ port, host: '0.0.0.0', reusePort: true }, () => log(`Server running`));
-
-// New code (Windows-safe)
-server.listen(port, 'localhost', () => {
-  console.log(`Server running on http://localhost:${port}`);
-});;
+  // Listen on all network interfaces (required for Render/production)
+  server.listen(port, '0.0.0.0', () => {
+    log(`Server running on port ${port}`);
+  });
 })();
