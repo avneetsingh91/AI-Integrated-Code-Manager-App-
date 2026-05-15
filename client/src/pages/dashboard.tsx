@@ -9,7 +9,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { formatDistanceToNow } from "date-fns";
 
 export default function Dashboard() {
   const { files, createFile, deleteFile, user } = useApp();
@@ -134,7 +133,7 @@ export default function Dashboard() {
             </CardContent>
             <CardFooter>
               <p className="text-xs text-muted-foreground">
-                Edited {formatDistanceToNow(new Date(file.lastModified))} ago
+                Edited {new Date(file.lastModified).toLocaleDateString()} 
               </p>
             </CardFooter>
           </Card>
